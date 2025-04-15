@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASCII Art Animation Tool</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      font-family: monospace;
+      background-color: #111;
+      color: white;
+    }
+    #sidebar {
+      width: 250px;
+      background-color: #222;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-right: 2px solid #444;
+    }
+    #canvas-container {
+      flex-grow: 1;
+      position: relative;
+      overflow: hidden;
+      background-color: #000;
+    }
+    #ascii-canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+    }
+    .layer-settings {
+      background: #333;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #555;
+    }
+    input, select {
+      width: 100%;
+      margin-top: 4px;
+      background: #444;
+      border: none;
+      color: white;
+      padding: 5px;
+    }
+    button {
+      padding: 10px;
+      background-color: #555;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+    #top-right-controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+    }
+    #top-right-controls label {
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <button onclick="addAsciiElement()">➕ Add ASCII</button>
+    <button onclick="toggleLayers()">🧱 Layers</button>
+    <div id="layers-panel" style="display:none;"></div>
+  </div>
+  <div id="canvas-container">
+    <canvas id="ascii-canvas"></canvas>
+    <div id="top-right-controls">
+      <label><input type="checkbox" id="gridToggle" onchange="toggleGrid()"> Show Grid</label>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('ascii-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth - 250;
+    canvas.height = window.innerHeight;
+
+    let layers = [];
+    let drawing = false;
+    let currentPath = [];
+    let selectedChar = '*';
+    let showGrid = false;
+
+    function addAsciiElement() {
+      selectedChar = prompt('Enter ASCII character or text:', '*') || '*';
+      alert('Now click and drag on canvas to draw a path.');
+      drawing = true;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (!drawing) return;
+      currentPath = [{ x: e.offsetX, y: e.offsetY }];
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!drawing || currentPath.length === 0) return;
+      currentPath.push({ x: e.offsetX, y: e.offsetY });
+      drawTempPath();
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      if (!drawing || currentPath.length === 0) return;
+      const newLayer = {
+        char: selectedChar,
+        path: [...currentPath],
+        index: 0,
+        speed: 1,
+        color: '#0f0',
+        size: 16,
+        delay: 0,
+        trail: [],
+        show: true
+      };
+      layers.push(newLayer);
+      updateLayersPanel();
+      drawing = false;
+      currentPath = [];
+    });
+
+    function drawTempPath() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      ctx.beginPath();
+      ctx.moveTo(currentPath[0].x, currentPath[0].y);
+      for (let p of currentPath) ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = '#555';
+      ctx.stroke();
+    }
+
+    function updateLayersPanel() {
+      const panel = document.getElementById('layers-panel');
+      panel.innerHTML = '';
+      layers.forEach((layer, i) => {
+        const div = document.createElement('div');
+        div.className = 'layer-settings';
+        div.innerHTML = `
+          <label>Char: ${layer.char}</label><br>
+          <label>Speed: <input type="range" min="1" max="10" value="${layer.speed}" onchange="layers[${i}].speed = this.value"></label><br>
+          <label>Color: <input type="color" value="${layer.color}" onchange="layers[${i}].color = this.value"></label><br>
+          <label>Size: <input type="range" min="10" max="40" value="${layer.size}" onchange="layers[${i}].size = this.value"></label><br>
+          <label>Delay (frames): <input type="number" min="0" max="200" value="${layer.delay}" onchange="layers[${i}].delay = parseInt(this.value)"></label><br>
+          <label>Visible: <input type="checkbox" ${layer.show ? 'checked' : ''} onchange="layers[${i}].show = this.checked"></label>
+        `;
+        panel.appendChild(div);
+      });
+    }
+
+    function toggleLayers() {
+      const panel = document.getElementById('layers-panel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function toggleGrid() {
+      showGrid = document.getElementById('gridToggle').checked;
+    }
+
+    function drawGrid() {
+      if (!showGrid) return;
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 0.5;
+      for (let x = 0; x < canvas.width; x += 20) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 20) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    function animate() {
+      ctx.fillStyle = 'rgba(0,0,0,0.2)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      drawGrid();
+
+      for (let layer of layers) {
+        if (!layer.show || layer.path.length === 0) continue;
+
+        if (layer.delay > 0) {
+          layer.delay--;
+          continue;
+        }
+
+        const pos = layer.path[layer.index];
+        ctx.fillStyle = layer.color;
+        ctx.font = `${layer.size}px monospace`;
+        ctx.fillText(layer.char, pos.x, pos.y);
+
+        layer.trail.push({ x: pos.x, y: pos.y, life: 20 });
+
+        layer.index = (layer.index + parseInt(layer.speed)) % layer.path.length;
+
+        // Draw trail
+        for (let i = 0; i < layer.trail.length; i++) {
+          const t = layer.trail[i];
+          t.life--;
+          if (t.life > 0) {
+            ctx.fillStyle = layer.color + Math.floor((t.life / 20) * 255).toString(16).padStart(2, '0');
+            ctx.font = `${layer.size / 1.5}px monospace`;
+            ctx.fillText(layer.char, t.x, t.y);
+          } else {
+            layer.trail.splice(i, 1);
+            i--;
+          }
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>
