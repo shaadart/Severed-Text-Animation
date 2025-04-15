@@ -1,4 +1,4 @@
-# ASCII Art Animation Tool
+# SOFT MOVING INK is an ASCII Art Animation Tool
 
 ![screenshot](image.png)
 
